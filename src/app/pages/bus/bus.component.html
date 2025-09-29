@@ -1,0 +1,193 @@
+<div class="bus-container">
+  <h2>Gestion des Bus</h2>
+
+  <!-- Messages de notification -->
+  <div *ngIf="message" class="message" [class.success]="isSuccess" [class.error]="!isSuccess">
+    {{ message }}
+  </div>
+
+  <!-- Contrôles de tri, filtre et recherche -->
+  <div class="controls-section">
+    <div class="sort-controls">
+      <label for="sortBy">Trier par:</label>
+      <select id="sortBy" [(ngModel)]="sortBy" (change)="onSortChange()">
+        <option value="ligne">Ligne</option>
+        <option value="nom">Nom</option>
+        <option value="matricule">Matricule</option>
+      </select>
+      <select [(ngModel)]="sortOrder" (change)="onSortChange()">
+        <option value="asc">Croissant</option>
+        <option value="desc">Décroissant</option>
+      </select>
+    </div>
+
+    <div class="filter-controls">
+      <button (click)="loadActiveBuses()" class="btn btn-success">
+        Voir les bus actifs
+      </button>
+    </div>
+
+    <div class="search-controls">
+      <input 
+        type="text" 
+        placeholder="Rechercher par ligne..." 
+        #searchInput
+        (input)="searchByLigne(searchInput.value)">
+    </div>
+  </div>
+
+  <!-- Indicateur de chargement -->
+  <div *ngIf="isLoading" class="loading-indicator">
+    <div class="spinner"></div>
+    <span>Chargement en cours...</span>
+  </div>
+
+  <!-- Formulaire d'ajout -->
+  <form (ngSubmit)="addBus()" #busForm="ngForm" class="bus-form">
+    <h3>Ajouter un nouveau bus</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="new-nom">Nom</label>
+        <input type="text" id="new-nom" [(ngModel)]="newBus.nom" name="nom" required>
+      </div>
+
+      <div class="form-group">
+        <label for="new-ligne">Ligne</label>
+        <input type="text" id="new-ligne" [(ngModel)]="newBus.ligne" name="ligne" required>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="new-matricule">Matricule</label>
+        <input type="text" id="new-matricule" [(ngModel)]="newBus.matricule" name="matricule" required>
+      </div>
+
+      <div class="form-group">
+        <label for="new-chauffeur">Chauffeur</label>
+        <select id="new-chauffeur" [(ngModel)]="newBus.chauffeurId" name="chauffeurId" required>
+          <option value="">Sélectionner un chauffeur</option>
+          <option *ngIf="isLoadingChauffeurs" disabled>Chargement des chauffeurs...</option>
+          <option 
+            *ngFor="let chauffeur of chauffeurs; trackBy: trackByChauffeurId" 
+            [value]="chauffeur._id">
+            {{ chauffeur.nom }} {{ chauffeur.prenom }}
+          </option>
+        </select>
+        <small class="form-text" *ngIf="newBus.chauffeurId">
+          Chauffeur sélectionné: {{ getSelectedChauffeurName(newBus.chauffeurId) }}
+        </small>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary" [disabled]="!busForm.valid || isLoading">
+        Ajouter
+      </button>
+      <button type="button" class="btn btn-secondary" (click)="resetForm()">
+        Réinitialiser
+      </button>
+    </div>
+  </form>
+
+  <!-- Liste des bus -->
+  <div class="bus-list-container">
+    <h3>Liste des Bus ({{buses.length}})</h3>
+    
+    <div *ngIf="!isLoading && buses.length === 0" class="no-buses">
+      Aucun bus trouvé
+    </div>
+    
+    <div class="bus-list" *ngIf="!isLoading && buses.length > 0">
+      <div *ngFor="let bus of buses; trackBy: trackByBusId" class="bus-item">
+        <div class="bus-info">
+          <div class="bus-main-info">
+            <strong>{{ bus.nom }}</strong>
+            <span class="bus-ligne">Ligne {{ bus.ligne }}</span>
+            <span class="bus-matricule">{{ bus.matricule }}</span>
+            <span class="bus-status" [class.active]="bus.actif">
+              {{ bus.actif ? 'Actif' : 'Inactif' }}
+            </span>
+          </div>
+          
+          <div class="bus-details">
+            <div class="chauffeur-info" *ngIf="bus.chauffeurId">
+              <i class="icon-user"></i> 
+              Chauffeur: {{ getChauffeurName(bus.chauffeurId) }}
+            </div>
+            <div class="chauffeur-info" *ngIf="!bus.chauffeurId">
+              <i class="icon-user"></i> 
+              Chauffeur: Non assigné
+            </div>
+            <div class="last-update">
+              <i class="icon-clock"></i> 
+              Dernière mise à jour: {{ getLastUpdate(bus) }}
+            </div>
+          </div>
+        </div>
+        
+        <div class="bus-actions">
+          <button (click)="editBus(bus)" class="btn btn-edit">
+            Modifier
+          </button>
+          <button (click)="deleteBus(bus._id)" class="btn btn-delete">
+            Supprimer
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de modification -->
+  <div *ngIf="selectedBus" class="form-modal">
+    <div class="form-content">
+      <h3>Modifier le Bus</h3>
+      
+      <form (ngSubmit)="updateBus()" #editForm="ngForm">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-nom">Nom</label>
+            <input type="text" id="edit-nom" [(ngModel)]="selectedBus.nom" name="nom" required>
+          </div>
+
+          <div class="form-group">
+            <label for="edit-ligne">Ligne</label>
+            <input type="text" id="edit-ligne" [(ngModel)]="selectedBus.ligne" name="ligne" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-matricule">Matricule</label>
+            <input type="text" id="edit-matricule" [(ngModel)]="selectedBus.matricule" name="matricule" required>
+          </div>
+
+          <div class="form-group">
+            <label for="edit-chauffeur">Chauffeur</label>
+            <select id="edit-chauffeur" [(ngModel)]="selectedBus.chauffeurId" name="chauffeurId" required>
+              <option value="">Sélectionner un chauffeur</option>
+              <option *ngIf="isLoadingChauffeurs" disabled>Chargement des chauffeurs...</option>
+              <option 
+                *ngFor="let chauffeur of chauffeurs; trackBy: trackByChauffeurId" 
+                [value]="chauffeur._id">
+                {{ chauffeur.nom }} {{ chauffeur.prenom }}
+              </option>
+            </select>
+            <small class="form-text" *ngIf="selectedBus.chauffeurId">
+              Chauffeur sélectionné: {{ getSelectedChauffeurName(selectedBus.chauffeurId) }}
+            </small>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" [disabled]="!editForm.valid || isLoading">
+            Enregistrer
+          </button>
+          <button type="button" class="btn btn-secondary" (click)="selectedBus = null">
+            Annuler
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

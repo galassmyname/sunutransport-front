@@ -1,0 +1,257 @@
+<div class="arret-container">
+  <h1>Liste des Arrêts</h1>
+
+  <!-- Message de succès/erreur -->
+  <div *ngIf="message" class="message" [class.success]="isSuccess" [class.error]="!isSuccess">
+    {{ message }}
+  </div>
+
+  <!-- Contrôles de filtrage et vue -->
+  <div class="controls-section">
+    <div class="view-controls">
+      <button class="btn btn-toggle" 
+              [class.active]="showEnrichedView" 
+              (click)="toggleView()"
+              [disabled]="isLoading">
+        {{ showEnrichedView ? '📋 Vue simple' : '📊 Vue enrichie' }}
+      </button>
+      
+      <button class="btn btn-refresh" (click)="loadData()" [disabled]="isLoading">
+        🔄 Actualiser
+      </button>
+    </div>
+
+    <div class="filter-controls">
+      <select #ligneSelect (change)="ligneSelect.value && loadArretsByLigne(ligneSelect.value)" [disabled]="isLoading">
+        <option value="">Filtrer par ligne...</option>
+        <option *ngFor="let ligne of getAvailableLignes()" [value]="ligne">
+          Ligne {{ ligne }}
+        </option>
+      </select>
+
+      <select #busSelect (change)="busSelect.value && loadArretsByBus(busSelect.value)" [disabled]="isLoading">
+        <option value="">Filtrer par bus...</option>
+        <option *ngFor="let bus of buses" [value]="bus._id">
+          {{ getBusName(bus) }}
+        </option>
+      </select>
+
+      <button class="btn btn-secondary" 
+              (click)="ligneSelect.value = ''; busSelect.value = ''; loadData()"
+              [disabled]="isLoading">
+        ❌ Effacer filtres
+      </button>
+    </div>
+  </div>
+
+  <!-- Indicateur de chargement -->
+  <div *ngIf="isLoading" class="loading-indicator">
+    <div class="spinner"></div>
+    <span>Chargement...</span>
+  </div>
+
+  <!-- Message si la liste est vide -->
+  <p *ngIf="arrets.length === 0 && !isLoading" class="no-arrets">
+    Aucun arrêt trouvé pour le moment.
+  </p>
+
+  <!-- Liste des arrêts -->
+  <div class="arrets-grid">
+    <div *ngFor="let arret of arrets; trackBy: trackByArretId" class="arret-card">
+      <div class="arret-header">
+        <h3>{{ arret.nom }}</h3>
+      </div>
+      
+      <div class="arret-coordinates">
+        <span>📍 {{ arret.latitude | number:'1.4-4' }}, {{ arret.longitude | number:'1.4-4' }}</span>
+      </div>
+
+      <!-- Vue simple : Associations de bus -->
+      <div *ngIf="!showEnrichedView" class="bus-associations">
+        <h4>Bus associés :</h4>
+        <div *ngIf="arret?.busAssociations && arret.busAssociations.length > 0" class="bus-list">
+          <div *ngFor="let assoc of arret.busAssociations" class="bus-association">
+            <span class="bus-name">{{ getBusName(assoc.busId) }}</span>
+            <span class="bus-order">Ordre: {{ assoc.ordre }}</span>
+            <span class="bus-direction">{{ assoc.direction }}</span>
+          </div>
+        </div>
+        <div *ngIf="!arret.busAssociations || arret.busAssociations.length === 0" class="no-buses">
+          <em>Aucun bus associé</em>
+        </div>
+      </div>
+
+      <!-- Vue enrichie : Informations de ligne -->
+      <div *ngIf="showEnrichedView && arret.lignes" class="lignes-info">
+        <h4>Lignes desservies :</h4>
+        <div *ngIf="arret.lignes.length > 0" class="lignes-list">
+          <div *ngFor="let ligne of arret.lignes" class="ligne-item">
+            <span class="ligne-number">Ligne {{ ligne.ligne }}</span>
+            <span class="ligne-bus">{{ ligne.busNom }}</span>
+            <div class="ligne-details">
+              <span class="ligne-direction">{{ ligne.direction }}</span>
+              <span class="ligne-order">Ordre: {{ ligne.ordre }}</span>
+              <span *ngIf="ligne.chauffeur" class="ligne-chauffeur">
+                👤 {{ ligne.chauffeur.nom }} {{ ligne.chauffeur.prenom }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div *ngIf="arret.lignes.length === 0" class="no-lignes">
+          <em>Aucune ligne desservie</em>
+        </div>
+      </div>
+
+      <div class="arret-actions">
+        <button class="btn btn-edit" (click)="editArret(arret)" [disabled]="isLoading">
+          ✏️ Modifier
+        </button>
+        <button class="btn btn-delete" (click)="deleteArret(arret._id!)" [disabled]="isLoading">
+          🗑️ Supprimer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Formulaire de mise à jour -->
+  <div *ngIf="selectedArret" class="form-modal">
+    <div class="form-content">
+      <h2>Modifier l'Arrêt</h2>
+      <form (ngSubmit)="updateArret()" #editForm="ngForm">
+        <div class="form-group">
+          <label for="editNom">Nom :</label>
+          <input id="editNom" type="text" [(ngModel)]="selectedArret.nom" name="editNom" required />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="editLat">Latitude :</label>
+            <input id="editLat" type="number" [(ngModel)]="selectedArret.latitude" name="editLat" step="any" required />
+          </div>
+          <div class="form-group">
+            <label for="editLng">Longitude :</label>
+            <input id="editLng" type="number" [(ngModel)]="selectedArret.longitude" name="editLng" step="any" required />
+          </div>
+        </div>
+
+        <div class="bus-associations-form">
+          <h3>Associations de Bus</h3>
+          <div *ngFor="let assoc of selectedArret.busAssociations; let i = index" class="bus-association-form">
+            <div class="association-header">
+              <h4>Bus {{ i + 1 }}</h4>
+              <button type="button" class="btn btn-remove" (click)="removeBusAssociation(i, false)">
+                ❌ Supprimer
+              </button>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label [for]="'editBusId_' + i">Bus :</label>
+                <select [id]="'editBusId_' + i" [(ngModel)]="assoc.busId" [name]="'busId_' + i" required>
+                  <option value="">Sélectionner un bus</option>
+                  <option *ngFor="let bus of buses" [value]="bus._id">
+                    {{ getBusName(bus) }}
+                  </option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label [for]="'editOrdre_' + i">Ordre :</label>
+                <input [id]="'editOrdre_' + i" type="number" [(ngModel)]="assoc.ordre" [name]="'ordre_' + i" min="1" required />
+              </div>
+              <div class="form-group">
+                <label [for]="'editDirection_' + i">Direction :</label>
+                <select [id]="'editDirection_' + i" [(ngModel)]="assoc.direction" [name]="'direction_' + i" required>
+                  <option value="aller">Aller</option>
+                  <option value="retour">Retour</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <button type="button" class="btn btn-add" (click)="addBusAssociation(false)">
+            ➕ Ajouter un bus
+          </button>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" [disabled]="!editForm.valid || isLoading">
+            💾 {{ isLoading ? 'Mise à jour...' : 'Mettre à jour' }}
+          </button>
+          <button type="button" class="btn btn-secondary" (click)="selectedArret = null" [disabled]="isLoading">
+            ❌ Annuler
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Formulaire d'ajout -->
+  <div class="add-form-container">
+    <h2>Ajouter un Nouvel Arrêt</h2>
+    <form (ngSubmit)="addArret()" #arretForm="ngForm">
+      <div class="form-group">
+        <label for="nom">Nom :</label>
+        <input id="nom" type="text" [(ngModel)]="newArret.nom" name="nom" 
+               placeholder="Ex: Place de l'Indépendance" required />
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="latitude">Latitude :</label>
+          <input id="latitude" type="number" [(ngModel)]="newArret.latitude" name="latitude" 
+                 step="any" placeholder="Ex: 14.6928" required />
+        </div>
+        <div class="form-group">
+          <label for="longitude">Longitude :</label>
+          <input id="longitude" type="number" [(ngModel)]="newArret.longitude" name="longitude" 
+                 step="any" placeholder="Ex: -17.4467" required />
+        </div>
+      </div>
+
+      <div class="bus-associations-form">
+        <h3>Associations de Bus</h3>
+        <div *ngFor="let assoc of newArret.busAssociations; let i = index" class="bus-association-form">
+          <div class="association-header">
+            <h4>Bus {{ i + 1 }}</h4>
+            <button type="button" class="btn btn-remove" (click)="removeBusAssociation(i, true)">
+              ❌ Supprimer
+            </button>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label [for]="'busId_' + i">Bus :</label>
+              <select [id]="'busId_' + i" [(ngModel)]="assoc.busId" [name]="'busId_' + i" required>
+                <option value="">Sélectionner un bus</option>
+                <option *ngFor="let bus of buses" [value]="bus._id">
+                  {{ getBusName(bus) }}
+                </option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label [for]="'ordre_' + i">Ordre :</label>
+              <input [id]="'ordre_' + i" type="number" [(ngModel)]="assoc.ordre" [name]="'ordre_' + i" min="1" required />
+            </div>
+            <div class="form-group">
+              <label [for]="'direction_' + i">Direction :</label>
+              <select [id]="'direction_' + i" [(ngModel)]="assoc.direction" [name]="'direction_' + i" required>
+                <option value="aller">Aller</option>
+                <option value="retour">Retour</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        <button type="button" class="btn btn-add" (click)="addBusAssociation(true)">
+          ➕ Ajouter un bus
+        </button>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" [disabled]="!arretForm.valid || isLoading">
+          ➕ {{ isLoading ? 'Ajout...' : 'Ajouter l\'arrêt' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

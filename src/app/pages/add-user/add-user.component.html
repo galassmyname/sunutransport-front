@@ -1,0 +1,123 @@
+<div class="container">
+  <h1>Ajouter un Utilisateur</h1>
+
+  <form (ngSubmit)="addUser()" #userForm="ngForm" class="user-form" novalidate>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="nom">Nom *</label>
+        <input
+          type="text"
+          id="nom"
+          [(ngModel)]="user.nom"
+          name="nom"
+          required
+          placeholder="Dupont"
+          autocomplete="family-name"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="prenom">Prénom *</label>
+        <input
+          type="text"
+          id="prenom"
+          [(ngModel)]="user.prenom"
+          name="prenom"
+          required
+          placeholder="Jean"
+          autocomplete="given-name"
+        />
+      </div>
+    </div>
+
+    <div class="form-row single">
+      <div class="form-group">
+        <label for="email">Email *</label>
+        <input
+          type="email"
+          id="email"
+          [(ngModel)]="user.email"
+          name="email"
+          required
+          placeholder="jean.dupont@example.com"
+          autocomplete="email"
+        />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="role">Rôle *</label>
+        <select 
+          id="role" 
+          [(ngModel)]="user.role" 
+          name="role" 
+          required
+          (change)="onRoleChange()"
+        >
+          <option value="">Sélectionner un rôle</option>
+          <option *ngFor="let role of roles" [value]="role">
+            {{ role | titlecase }}
+          </option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="credential">
+          {{ showPinField ? 'Code PIN *' : 'Mot de passe *' }}
+        </label>
+        <input
+          [type]="showPinField ? 'password' : 'password'"
+          id="credential"
+          [(ngModel)]="user.credential"
+          name="credential"
+          required
+          [pattern]="showPinField ? '\\d{4}' : '.{6,}'"
+          [maxlength]="showPinField ? '4' : ''"
+          [minlength]="showPinField ? '4' : '6'"
+          [placeholder]="showPinField ? '••••' : '••••••••'"
+          [autocomplete]="showPinField ? 'off' : 'new-password'"
+        />
+        
+        <div class="credential-info" [class.pin-info]="showPinField" [class.password-info]="!showPinField">
+          <span *ngIf="showPinField">
+            <strong>Code PIN :</strong> Exactement 4 chiffres pour l'authentification voyageur
+          </span>
+          <span *ngIf="!showPinField">
+            <strong>Mot de passe :</strong> Minimum 6 caractères pour chauffeur/admin
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button 
+        type="submit" 
+        [disabled]="isLoading || !userForm.valid"
+        class="submit-button"
+      >
+        <span *ngIf="isLoading" class="loading-spinner"></span>
+        <span *ngIf="!isLoading">Ajouter l'utilisateur</span>
+        <span *ngIf="isLoading">Création en cours...</span>
+      </button>
+      
+      <button 
+        type="button" 
+        class="btn btn-secondary"
+        (click)="resetForm()"
+        [disabled]="isLoading"
+      >
+        Réinitialiser
+      </button>
+    </div>
+  </form>
+
+  <!-- Messages de notification -->
+  <div *ngIf="successMessage" class="message success">
+    {{ successMessage }}
+  </div>
+
+  <div *ngIf="errorMessage" class="message error">
+    {{ errorMessage }}
+  </div>
+</div>

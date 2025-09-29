@@ -1,0 +1,106 @@
+<div class="users-container">
+  <h2>Gestion des Utilisateurs</h2>
+
+  <!-- Messages de notification -->
+  <div *ngIf="message" class="message" [class.success]="isSuccess" [class.error]="!isSuccess">
+    {{ message }}
+  </div>
+
+  <!-- Section des contrôles et statistiques -->
+  <div class="controls-section">
+    <div class="stats">
+      <div class="stat-item">
+        <span class="stat-number">{{ getTotalUsers() }}</span>
+        <span class="stat-label">Total</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number">{{ getUsersByRole('admin').length }}</span>
+        <span class="stat-label">Admins</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number">{{ getUsersByRole('chauffeur').length }}</span>
+        <span class="stat-label">Chauffeurs</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number">{{ getUsersByRole('voyageur').length }}</span>
+        <span class="stat-label">Voyageurs</span>
+      </div>
+    </div>
+
+    <div class="actions">
+      <a class="btn btn-primary" routerLink="/admin/add-user">
+        ➕ Ajouter un utilisateur
+      </a>
+      <button class="btn btn-secondary" (click)="refreshUsers()" [disabled]="isLoading">
+        🔄 Actualiser
+      </button>
+    </div>
+  </div>
+
+  <!-- Indicateur de chargement -->
+  <div *ngIf="isLoading" class="loading-indicator">
+    <div class="spinner"></div>
+    <span>Chargement des utilisateurs...</span>
+  </div>
+
+  <!-- Liste des utilisateurs -->
+  <div class="users-list-container" *ngIf="!isLoading">
+    <div class="list-header">
+      <h3 class="list-title">Liste des Utilisateurs</h3>
+      <span class="user-count">{{ users.length }} utilisateur{{ users.length > 1 ? 's' : '' }}</span>
+    </div>
+
+    <!-- État vide -->
+    <div *ngIf="users.length === 0" class="no-users">
+      <div class="empty-icon">👥</div>
+      <h3>Aucun utilisateur trouvé</h3>
+      <p>Commencez par ajouter votre premier utilisateur au système.</p>
+      <a class="btn btn-primary" routerLink="/admin/add-user">
+        ➕ Ajouter le premier utilisateur
+      </a>
+    </div>
+
+    <!-- Liste des utilisateurs -->
+    <div class="users-list" *ngIf="users.length > 0">
+      <div *ngFor="let user of users; trackBy: trackByUserId" class="user-item">
+        <div class="user-main-info">
+          <div class="user-avatar" [class]="user.role">
+            {{ getInitials(user.prenom, user.nom) }}
+          </div>
+
+          <div class="user-info">
+            <div class="user-name">{{ user.prenom }} {{ user.nom }}</div>
+            <div class="user-details">
+              <a *ngIf="user.email" [href]="'mailto:' + user.email" class="user-email">
+                {{ user.email }}
+              </a>
+              <div *ngIf="user.telephone" class="user-phone">
+                📞 {{ user.telephone }}
+              </div>
+              <div class="user-meta">
+                <span class="user-role" [class]="user.role">
+                  {{ getRoleDisplayName(user.role) }}
+                </span>
+                <span class="user-id">ID: {{ user._id.slice(-6) }}</span>
+                <span *ngIf="isCurrentUser(user._id)" class="current-user-badge">
+                  👤 Vous
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="user-actions">
+          <button 
+            class="btn btn-danger" 
+            (click)="deleteUser(user._id, user.prenom + ' ' + user.nom)"
+            [disabled]="isCurrentUser(user._id) || isLoading"
+            [title]="isCurrentUser(user._id) ? 'Vous ne pouvez pas vous supprimer' : 'Supprimer cet utilisateur'"
+          >
+            🗑️ Supprimer
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

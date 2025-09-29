@@ -1,0 +1,47 @@
+<div class="dashboard-container">
+  <div class="company-header">
+    <h1>SuNu TransPort</h1>
+  </div>
+
+  <div class="dashboard-header">
+    <h2>Tableau de Bord</h2>
+    <p>Statistiques globales de votre flotte</p>
+    <button (click)="logout()" class="logout-btn">Déconnexion</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat stat-buses">
+      <div class="stat-icon">🚌</div>
+      <h3>Bus</h3>
+      <p class="stat-value">{{ stats.buses }}</p>
+    </div>
+
+    <div class="stat stat-utilisateurs">
+      <div class="stat-icon">👥</div>
+      <h3>Utilisateurs</h3>
+      <p>{{ stats.chauffeurs + stats.voyageur }}</p> <!-- Total des utilisateurs (chauffeurs + clients) -->
+    </div>
+
+    <div class="stat stat-arrets">
+      <div class="stat-icon">📍</div>
+      <h3>Arrêts</h3>
+      <p class="stat-value">{{ stats.arrets }}</p>
+    </div>
+  </div>
+
+  <div class="quick-actions">
+    <h2>Gestion des Ressources</h2>
+    <div class="action-buttons">
+      <a *ngFor="let action of quickActions" 
+         [routerLink]="action.route" 
+         class="btn {{action.class}}">
+        <span>{{action.icon}}</span> {{action.label}}
+      </a>
+    </div>
+  </div>
+
+  <div class="localisation-section">
+    <h2>Localisation des Bus</h2>
+    <app-localisation></app-localisation>
+  </div>
+</div>

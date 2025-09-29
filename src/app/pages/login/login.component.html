@@ -1,0 +1,27 @@
+<div class="login-container">
+  <div class="login-box">
+    <h1>Connexion Administrateur</h1>
+    <form (ngSubmit)="login()">
+      <label for="email">Email :</label>
+      <input
+        type="email"
+        id="email"
+        [(ngModel)]="email"
+        name="email"
+        placeholder="Entrez votre email"
+        required
+      />
+      <label for="motDePasse">Mot de passe :</label>
+      <input
+        type="password"
+        id="motDePasse"
+        [(ngModel)]="motDePasse"
+        name="motDePasse"
+        placeholder="Entrez votre mot de passe"
+        required
+      />
+      <button type="submit">Se connecter</button>
+    </form>
+    <p *ngIf="errorMessage" class="error">{{ errorMessage }}</p>
+  </div>
+</div>

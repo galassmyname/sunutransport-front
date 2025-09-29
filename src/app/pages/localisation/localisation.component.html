@@ -1,0 +1,177 @@
+<div class="map-container">
+  <div id="map"></div>
+
+  <!-- Barre de recherche avancée -->
+  <div class="search-container">
+    <div class="search-bar">
+      <div class="search-input-group">
+        <input 
+          type="text" 
+          [(ngModel)]="searchQuery" 
+          (input)="onSearchInputChange()"
+          placeholder="Rechercher un bus (ligne, nom) ou un arrêt..."
+          class="search-input"
+          autocomplete="off">
+        
+        <div class="search-filters">
+          <button 
+            [class.active]="searchType === 'all'"
+            (click)="setSearchType('all')"
+            class="filter-btn">
+            Tout
+          </button>
+          <button 
+            [class.active]="searchType === 'bus'"
+            (click)="setSearchType('bus')"
+            class="filter-btn">
+            🚌 Bus
+          </button>
+          <button 
+            [class.active]="searchType === 'arret'"
+            (click)="setSearchType('arret')"
+            class="filter-btn">
+            📍 Arrêts
+          </button>
+        </div>
+        
+        <button 
+          *ngIf="searchQuery" 
+          (click)="clearSearch()" 
+          class="clear-search-btn">
+          ✕
+        </button>
+        
+        <div *ngIf="isSearching" class="search-loader">
+          <div class="spinner"></div>
+        </div>
+      </div>
+
+      <!-- Résultats de recherche -->
+      <div *ngIf="showSearchResults" class="search-results">
+        <div 
+          *ngFor="let result of searchResults; let i = index" 
+          class="search-result-item"
+          (click)="selectSearchResult(result)"
+          [class.bus-result]="result.type === 'bus'"
+          [class.arret-result]="result.type === 'arret'">
+          
+          <div class="result-icon">
+            <span *ngIf="result.type === 'bus'">🚌</span>
+            <span *ngIf="result.type === 'arret'">📍</span>
+          </div>
+          
+          <div class="result-content">
+            <div class="result-name">{{ result.name }}</div>
+            <div class="result-details">{{ result.details }}</div>
+          </div>
+          
+          <div class="result-type-badge" [class]="result.type">
+            {{ result.type === 'bus' ? 'Bus' : 'Arrêt' }}
+          </div>
+        </div>
+        
+        <div *ngIf="searchResults.length === 0 && !isSearching" class="no-results">
+          Aucun résultat trouvé pour "{{ searchQuery }}"
+        </div>
+      </div>
+    </div>
+
+    <!-- Raccourcis de recherche rapide -->
+    <div class="quick-search">
+      <h4>Recherche rapide par ligne</h4>
+      <div class="ligne-buttons">
+        <button 
+          *ngFor="let pos of getActiveBuses().slice(0, 8)" 
+          (click)="searchByLigne(pos.bus.ligne)"
+          class="ligne-btn">
+          Ligne {{ pos.bus.ligne }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bouton de contrôle d'itinéraire -->
+  <button (click)="toggleRouteVisibility()" class="route-toggle-btn" [class.active]="showRoute">
+    <i class="fas fa-route"></i>
+    {{ showRoute ? 'Masquer' : 'Afficher' }} l'itinéraire
+    <span *ngIf="routeLoading" class="loading-spinner"></span>
+  </button>
+
+  <!-- Notifications -->
+  <div *ngIf="notifications.length > 0" class="notifications-container">
+    <div *ngFor="let notification of notifications; let i = index" 
+         class="notification-item" 
+         (click)="removeNotification(i)">
+      <i class="notification-icon">ℹ️</i>
+      <span class="notification-text">{{ notification }}</span>
+      <button class="notification-close" (click)="removeNotification(i)">×</button>
+    </div>
+  </div>
+
+  <!-- Liste des bus en circulation -->
+  <div *ngIf="getActiveBuses().length > 0" class="bus-list">
+    <h3>Bus en circulation</h3>
+    <div class="bus-item" 
+         *ngFor="let pos of getActiveBuses()" 
+         (click)="focusOnBus(pos)"
+         [class.selected]="selectedBusId === pos.bus?._id">
+      <span class="bus-name">{{ pos.bus?.nom || 'Bus ' + pos.bus?._id }}</span>
+      <span class="bus-status active">Ligne {{ pos.bus?.ligne }}</span>
+    </div>
+  </div>
+
+  <!-- Informations détaillées du bus sélectionné -->
+  <div *ngIf="selectedBusInfo" class="bus-info">
+    <h4>{{ selectedBusInfo.bus?.nom || 'Bus ' + selectedBusInfo.bus?._id }}</h4>
+    <p><strong>Ligne:</strong> {{ selectedBusInfo.bus?.ligne || 'N/A' }}</p>
+    <p><strong>Matricule:</strong> {{ selectedBusInfo.bus?.matricule || 'N/A' }}</p>
+    <p><strong>Vitesse:</strong> {{ selectedBusInfo.vitesse || 'N/A' }} km/h</p>
+    <p><strong>Status:</strong> 
+      <span [class]="selectedBusInfo.bus?.actif ? 'bus-status active' : 'bus-status'">
+        {{ selectedBusInfo.bus?.actif ? 'Actif' : 'Inactif' }}
+      </span>
+    </p>
+    
+    <div *ngIf="tempsArriveeData" class="eta-info">
+      <h5>🚌 Informations de trajet</h5>
+      
+      <div *ngIf="tempsArriveeData.arret && tempsArriveeData.arret !== 'N/A' && !tempsArriveeData.message">
+        <p><strong>Prochain arrêt:</strong> {{ tempsArriveeData.arret }}</p>
+        <p><strong>Distance:</strong> {{ tempsArriveeData.distance }} m</p>
+        <p><strong>Temps estimé:</strong> 
+          <span *ngIf="tempsArriveeData.tempsArrivee > 0">{{ tempsArriveeData.tempsArrivee }} min</span>
+          <span *ngIf="tempsArriveeData.tempsArrivee === 0" class="arrival-imminent">Arrivée imminente!</span>
+        </p>
+      </div>
+      
+      <div *ngIf="tempsArriveeData.message" class="eta-message">
+        <p><strong>Status:</strong> {{ tempsArriveeData.message }}</p>
+        <p *ngIf="tempsArriveeData.arret && tempsArriveeData.arret !== 'N/A'">
+          <strong>Arrêt:</strong> {{ tempsArriveeData.arret }}
+        </p>
+        <p *ngIf="tempsArriveeData.distance > 0">
+          <strong>Distance:</strong> {{ tempsArriveeData.distance }} m
+        </p>
+      </div>
+      
+      <div *ngIf="!tempsArriveeData.arret || tempsArriveeData.arret === 'N/A'" class="eta-error">
+        <p><strong>Prochain arrêt:</strong> Non disponible</p>
+        <p><strong>Status:</strong> {{ tempsArriveeData.message || 'Données en cours de chargement...' }}</p>
+      </div>
+      
+      <div class="eta-details">
+        <small>
+          <strong>Vitesse moyenne:</strong> {{ tempsArriveeData.vitesse }} km/h<br>
+          <strong>Dernière mise à jour:</strong> {{ getCurrentTime() }}
+        </small>
+      </div>
+    </div>
+    
+    <div *ngIf="!tempsArriveeData" class="eta-loading">
+      <h5>🚌 Informations de trajet</h5>
+      <p><strong>Prochain arrêt:</strong> <span class="loading-text">Chargement...</span></p>
+      <p><strong>Distance:</strong> <span class="loading-text">-- m</span></p>
+      <p><strong>Temps estimé:</strong> <span class="loading-text">-- min</span></p>
+    </div>
+  </div>
+</div>
